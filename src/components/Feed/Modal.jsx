@@ -8,10 +8,11 @@ import { toast } from 'react-toastify';
 
 import './Modal.css'
 import { useModal } from '../../hooks/useModal';
-import { useMemo } from 'react';
-import { memo } from 'react';
+import { useDispatch } from 'react-redux';
 
 export function Modal({ postSucess = () => {}}) {
+
+    const { modalType, postId } = useModal();
 
     const [data, setData] = useState({
         image: null
@@ -27,7 +28,6 @@ export function Modal({ postSucess = () => {}}) {
     const inputChange = (event) => {
         setTextInput(event.target.value);
     }
-        
 
     const handleChange = (name) => (event) => {
       const value = name === "image" ? event.target.files[0] : event.target.value;
@@ -40,7 +40,7 @@ export function Modal({ postSucess = () => {}}) {
 
     const previewFile = (file) => {
       const reader = new FileReader();
-      reader.readAsDataURL(file);
+      reader.readAsDataURL_POSTS(file);
       reader.onloadend = () => {
         setPreviewSource(reader.result);
       }
@@ -54,12 +54,56 @@ export function Modal({ postSucess = () => {}}) {
         }
     }, [data, textInput]);
 
+    const URL_POSTS = process.env.REACT_APP_URL_POSTS
+
+    const postUpdate = async () => {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+
+        await fetch(`${URL_POSTS}/${postId}`, {
+            method: "PUT",
+            headers: {
+                'Content-Type': 'application/json',
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                text: textInput
+            }),
+            credentials: "same-origin"
+        })
+        .then(() => {
+            toast.success('Post atualizado com sucesso!', {
+                position: "top-right",
+                autoClose: 5000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
+            });
+
+            closeModal()
+            postSucess(true)
+            setLoading(false)
+            setTextInput('')
+        })
+        .catch(() => 
+            toast.error('Erro ao atualizar post', {
+                position: "top-right",
+                autoClose: 5000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
+            })
+        )
+        .finally(() => setLoading(false))
+    }
+
     
     const post = async (event) => {
-        event.preventDefault()
         const token = localStorage.getItem('token')
-
-        const URL_POSTS = "https://wtmfgciejg.execute-api.us-east-1.amazonaws.com/dev/posts"
 
         if(textInput.length > 0 && data.image == null) {
             setLoading(true)
@@ -67,11 +111,11 @@ export function Modal({ postSucess = () => {}}) {
             method: "POST",
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
+                'Authorization': 'Bearer ' + token,
+                'user': localStorage.getItem('user')
             },
             body: JSON.stringify({
-                text: textInput,
-                user: localStorage.getItem('user')
+                text: textInput
         }),
             credentials: "same-origin"
         })
@@ -111,10 +155,14 @@ export function Modal({ postSucess = () => {}}) {
 
             setLoading(true)
             const api = axios.create({
-                baseURL: "https://back-end-python-tera.herokuapp.com",
+                baseURL_POSTS: "https://back-end-python-tera.herokuapp.com",
                })
 
-            await api.post('/photos', {uploadedFile: formData.get('image')})
+            await api.post('/photos', {uploadedFile: formData.get('image')}, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            })
 
             .then(async (res) => {
                 console.log(res.data)
@@ -125,7 +173,7 @@ export function Modal({ postSucess = () => {}}) {
                         'Authorization': 'Bearer ' + token
                     },
                     body: JSON.stringify({
-                        image: res.data.url,
+                        image: res.data.URL_POSTS,
                         imageId: res.data.id,
                         user: localStorage.getItem('user')
                     })
@@ -170,7 +218,7 @@ export function Modal({ postSucess = () => {}}) {
             setEmptyForm(false)
 
             const api = axios.create({
-                baseURL: "https://back-end-python-tera.herokuapp.com",
+                baseURL_POSTS: "https://back-end-python-tera.herokuapp.com",
                })
 
             await api.post('/photos', {uploadedFile: formData.get('image')}, {
@@ -189,7 +237,7 @@ export function Modal({ postSucess = () => {}}) {
                     },
                     body: JSON.stringify({
                         text: textInput,
-                        image: res.data.url,
+                        image: res.data.URL_POSTS,
                         imageId: res.data.id,
                         user: localStorage.getItem('user')
                     }),
@@ -228,9 +276,11 @@ export function Modal({ postSucess = () => {}}) {
             .finally(() => setLoading(false))
         }
     }
-    
-    console.log(formData.get('image'))
 
+    const handleSubmit = (event) => {
+        event.preventDefault()
+        modalType === 'edit' ? postUpdate() : post()
+    }
 
     return (
         <>
@@ -240,7 +290,7 @@ export function Modal({ postSucess = () => {}}) {
                         <h2>Criar publicação</h2>
                         <button onClick={() => {closeModal()}}><img src={close} alt="" /></button>
                     </div>
-                    <form onSubmit={post}>
+                    <form onSubmit={handleSubmit}>
                         <div className='modal__input'>
                             <input value={textInput} onChange={inputChange} name="postContent" type="text" placeholder='No que está pensando?' />
                             <label htmlFor="photo"> <Image size={32} /> </label>
@@ -248,7 +298,7 @@ export function Modal({ postSucess = () => {}}) {
                         </div>
                             {previewSource && <img className='moda__form-imagem' src={previewSource} alt="imagem selecionada" />}
                         <div className='modal__button'>
-                            <button className={loading || emptyForm ? 'disabled' : ''} type='submit'>{loading ? <Spin /> : 'Publicar'}</button>
+                            <button className={loading || emptyForm ? 'disabled' : ''} type='submit'>{loading ? <Spin /> : modalType == "edit" ? "Editar" : 'Publicar'}</button>
                         </div>
                     </form>
                 </div>

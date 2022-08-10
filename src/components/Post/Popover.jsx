@@ -4,12 +4,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { postUpdate } from "../../redux/action";
 import { useState } from "react";
 import { Spin } from "antd";
+import { useModal } from "../../hooks/useModal";
 
 export const Popover = ({ userId, postId, imgIdPost }) => {
+
+    const { openModal, modalType, setModalType, setPostId } = useModal();
     console.log(postId)
 
-    const updatePost = useSelector(state => state);
-    console.log(updatePost)
+    const URL_POSTS = process.env.REACT_APP_URL_POSTS;
 
     const [loading, setLoading] = useState(false);
 
@@ -23,7 +25,7 @@ export const Popover = ({ userId, postId, imgIdPost }) => {
         setLoading(true)
         const token = localStorage.getItem('token')
 
-        await fetch(`https://wtmfgciejg.execute-api.us-east-1.amazonaws.com/dev/posts/${postId}`, {
+        await fetch(`${URL_POSTS}/${postId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': 'Bearer ' + token
@@ -73,7 +75,10 @@ export const Popover = ({ userId, postId, imgIdPost }) => {
 
     const allButtons = [
         <div key={postId + userId} className='popover-options'>
-            <button type='button'>Editar post</button>
+            <button
+                type='button'
+                onClick={() => {setModalType("edit"); setPostId(postId); openModal()}}
+            >Editar post</button>
             <button
                 className={`popover_option-delete ${loading ? 'disabled' : ''}`}
                 type='button'
